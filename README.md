@@ -126,12 +126,12 @@
     *   VocabParallelEmbedding旨在将embedding层切割到不同的GPU上，
     *   ColumnParallelLinear、RowParallelLinear则是将矩阵按照行列切割到不同的GPU上，完整的输出结果需要通过一次all-reduce来从各个GPU上汇总。
 
-   这里我们以GPT-2中的Transformer的线性层来举例。Transformer的线性层分为两部分：
-   *    第一部分是将$\text{hidden_size}$维的向量映射为$4 \times \text{hidden_size}$维的向量，并且通过GeLU激活；
-   *    第二部分是将激活后的$4 \times \text{hidden_size}$维的向量映射回$\text{hidden_size}$维，并且施加Dropout。
+    这里我们以GPT-2中的Transformer的线性层来举例。Transformer的线性层分为两部分：
+    *    第一部分是将$\text{hidden_size}$维的向量映射为$4 \times \text{hidden_size}$维的向量，并且通过GeLU激活；
+    *    第二部分是将激活后的$4 \times \text{hidden_size}$维的向量映射回$\text{hidden_size}$维，并且施加Dropout。
    
-   这里，我们对第一部分的线性层矩阵按列切分，第二部分按行切分。
-   *    对于第一部分$\mathbf{Y}=\text{GeLU}(\mathbf{X}\mathbf{A})$，我们将矩阵$\mathbf{A}$切分为$\mathbf{A}_1,\mathbf{A}_2$两个部分，那么整体的计算也被相应分为两部分$\mathbf{Y}_1=\text{GeLU}(\mathbf{X}\mathbf{A}_1)$和$\mathbf{Y}_2=\text{GeLU}(\mathbf{X}\mathbf{A}_2)$。此时$\mathbf{Y}_1$和$\mathbf{Y}_2$分别为$\mathbf{Y}$的前$2 \times \text{hidden_size}$结果和后$2 \times \text{hidden_size}$结果。
+    这里，我们对第一部分的线性层矩阵按列切分，第二部分按行切分。
+    *    对于第一部分$\mathbf{Y}=\text{GeLU}(\mathbf{X}\mathbf{A})$，我们将矩阵$\mathbf{A}$切分为$\mathbf{A}_1,\mathbf{A}_2$两个部分，那么整体的计算也被相应分为两部分$\mathbf{Y}_1=\text{GeLU}(\mathbf{X}\mathbf{A}_1)$和$\mathbf{Y}_2=\text{GeLU}(\mathbf{X}\mathbf{A}_2)$。此时$\mathbf{Y}_1$和$\mathbf{Y}_2$分别为$\mathbf{Y}$的前$2 \times \text{hidden_size}$结果和后$2 \times \text{hidden_size}$结果。
 
     *   对于$\mathbf{Z}=\mathbf{Y}\mathbf{B}$，我们将矩阵$\mathbf{B}$按行切分为$\mathbf{B}_1, \mathbf{B}_2$。将第一部分的结果$\mathbf{Y}_1$和$\mathbf{Y}_2$传入后，可计算$\mathbf{Z}_1=\mathbf{Y}_1\mathbf{B}_1$与$\mathbf{Z}_1=\mathbf{Y}_2\mathbf{B}_2$，此时有$\mathbf{Z}=\mathbf{Z}_1+\mathbf{Z}_1$。在Dropout之前，我们需要对$\mathbf{Z}_1$与$\mathbf{Z}_2$进行一次同步，加和后的结果再过Dropout。
 
